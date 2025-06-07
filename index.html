@@ -18,6 +18,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&family=Pacifico&family=Quicksand:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <title>Undangan Cisangkan KBP City Run 2025</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="asset/image/logo KBP.png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/OwlCarousel2/2.3.4/assets/owl.carousel.min.css" integrity="sha512-tS3S5qG0BlhnQROyJXvNjeEM4UpMXHrQfTGmbQ1gKmelCxlSEBUaxhRBj/EFTzpbP4RVSrpEikbmdJobCvhE3g==" crossorigin="anonymous" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/OwlCarousel2/2.3.4/assets/owl.theme.default.min.css" integrity="sha512-sMXtMNL1zRzolHYKEujM2AqCLUR9F2C4/05cdbxjjLSRvMQIciEPCQZo++nk7go3BtSuK9kfa/s+a4f4i5pLkw==" crossorigin="anonymous"
     />
@@ -671,6 +672,14 @@ Acara ini akan menjadi momen kebersamaan dan perayaan yang istimewa bagi kami de
     }
   }
 
+  // Fungsi untuk mengecek apakah nama sudah terdaftar
+  async function isGuestAlreadyRegistered(nama) {
+    const guestList = await loadRSVPFromSheet();
+    return guestList.some(guest => 
+      guest.nama && guest.nama.toLowerCase() === nama.toLowerCase()
+    );
+  }
+
   // Fungsi render daftar tamu dengan warna badge berbeda
   function renderGuestList(guestList) {
     const listContainer = document.getElementById("guestList");
@@ -710,6 +719,14 @@ Acara ini akan menjadi momen kebersamaan dan perayaan yang istimewa bagi kami de
     // Set nama tamu di form RSVP
     if (namaTamu) {
       document.getElementById('guestInput').value = namaTamu;
+      
+      // Cek apakah tamu sudah terdaftar
+      const isRegistered = await isGuestAlreadyRegistered(namaTamu);
+      if (isRegistered) {
+        document.getElementById('statusInput').disabled = true;
+        document.getElementById('rsvpForm').querySelector('button').disabled = true;
+        document.getElementById('rsvpForm').querySelector('button').textContent = 'Anda sudah mengisi kehadiran';
+      }
     }
 
     // Load data RSVP dari Google Sheet
@@ -727,34 +744,47 @@ Acara ini akan menjadi momen kebersamaan dan perayaan yang istimewa bagi kami de
       const nama = document.getElementById("guestInput").value;
       const status = document.getElementById("statusInput").value;
 
-      if (status && nama) {
-        try {
-          // Tampilkan loading state
-          const submitBtn = this.querySelector('button[type="submit"]');
-          submitBtn.disabled = true;
-          submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Mengirim...';
-          
-          await saveRSVPToSheet(nama, status);
-          
-          // Refresh daftar setelah submit
-          const guestList = await loadRSVPFromSheet();
-          renderGuestList(guestList);
-          
-          document.getElementById("statusInput").value = "";
-          
-          // Tampilkan notifikasi
-          alert('Konfirmasi kehadiran berhasil dikirim! Terima kasih.');
-        } catch (error) {
-          console.error('Error:', error);
-          alert('Gagal menyimpan data. Silakan coba lagi atau hubungi panitia.');
-        } finally {
-          // Reset button state
+      if (!status) {
+        alert('Harap pilih status kehadiran terlebih dahulu!');
+        return;
+      }
+
+      // Cek apakah tamu sudah terdaftar
+      const isRegistered = await isGuestAlreadyRegistered(nama);
+      if (isRegistered) {
+        alert('Anda sudah mengisi konfirmasi kehadiran sebelumnya.');
+        return;
+      }
+
+      try {
+        // Tampilkan loading state
+        const submitBtn = this.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Mengirim...';
+        
+        await saveRSVPToSheet(nama, status);
+        
+        // Refresh daftar setelah submit
+        const guestList = await loadRSVPFromSheet();
+        renderGuestList(guestList);
+        
+        // Nonaktifkan form setelah submit berhasil
+        document.getElementById("statusInput").disabled = true;
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Terima kasih atas konfirmasinya';
+        
+        // Tampilkan notifikasi
+        alert('Konfirmasi kehadiran berhasil dikirim! Terima kasih.');
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Gagal menyimpan data. Silakan coba lagi atau hubungi panitia.');
+      } finally {
+        // Reset button state jika gagal
+        if (!document.getElementById("statusInput").disabled) {
           const submitBtn = document.querySelector('#rsvpForm button[type="submit"]');
           submitBtn.disabled = false;
           submitBtn.textContent = 'Kirim Konfirmasi';
         }
-      } else {
-        alert('Harap pilih status kehadiran terlebih dahulu!');
       }
     });
   });
